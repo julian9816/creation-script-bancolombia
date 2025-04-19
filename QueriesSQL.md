@@ -6,7 +6,19 @@
 
 **Consulta SQL:**
 ```sql
-
+SELECT *
+FROM (
+    SELECT
+        cliente.id_cliente,
+        COUNT(cuenta.num_cuenta) AS cantidadCuentas,
+        SUM(cuenta.saldo) AS totalSaldo
+    FROM
+        cuenta
+    INNER JOIN cliente ON cliente.id_cliente = cuenta.id_cliente
+    GROUP BY cliente.id_cliente
+) AS sub
+WHERE sub.cantidadCuentas > 1
+ORDER BY sub.totalSaldo;
 ```
 
 ## Enunciado 2: Comparativa entre depósitos y retiros por cliente
@@ -15,7 +27,34 @@
 
 **Consulta SQL:**
 ```sql
+SELECT
+    cliente.id_cliente,
+    transaccion.tipo_transaccion,
+    SUM(transaccion.monto) AS total_monto
+FROM
+    cuenta
+INNER JOIN cliente ON cliente.id_cliente = cuenta.id_cliente
+INNER JOIN transaccion ON transaccion.num_cuenta = cuenta.num_cuenta
+GROUP BY
+    cliente.id_cliente,
+    transaccion.tipo_transaccion
 
+EXCEPT
+
+SELECT
+    cliente.id_cliente,
+    transaccion.tipo_transaccion,
+    SUM(transaccion.monto)
+FROM
+    cuenta
+INNER JOIN cliente ON cliente.id_cliente = cuenta.id_cliente
+INNER JOIN transaccion ON transaccion.num_cuenta = cuenta.num_cuenta
+INNER JOIN transferencia ON transferencia.id_transaccion = transaccion.id_transaccion
+GROUP BY
+    cliente.id_cliente,
+    transaccion.tipo_transaccion
+
+ORDER BY id_cliente;
 ```
 
 ## Enunciado 3: Cuentas sin tarjetas asociadas
@@ -24,7 +63,12 @@
 
 **Consulta SQL:**
 ```sql
-
+SELECT
+    cuenta.num_cuenta
+FROM
+    cuenta
+LEFT JOIN tarjeta ON tarjeta.num_cuenta = cuenta.num_cuenta
+WHERE tarjeta.id_tarjeta IS NULL;
 ```
 
 ## Enunciado 4: Análisis de saldos promedio por tipo de cuenta y comportamiento transaccional
@@ -33,7 +77,35 @@
 
 **Consulta SQL:**
 ```sql
+SELECT
+    cuenta.tipo_cuenta,
+    AVG(cuenta.saldo) AS promedio_saldo
+FROM
+    cuenta
+INNER JOIN cuentaahorro ON cuenta.num_cuenta = cuentaahorro.num_cuenta
+WHERE EXISTS (
+    SELECT 1
+    FROM transaccion
+    WHERE transaccion.num_cuenta = cuenta.num_cuenta
+      AND transaccion.fecha >= CURRENT_DATE - INTERVAL '30 days'
+)
+GROUP BY cuenta.tipo_cuenta
 
+UNION
+
+SELECT
+    cuenta.tipo_cuenta,
+    AVG(cuenta.saldo) AS promedio_saldo
+FROM
+    cuenta
+INNER JOIN cuentacorriente ON cuenta.num_cuenta = cuentacorriente.num_cuenta
+WHERE EXISTS (
+    SELECT 1
+    FROM transaccion
+    WHERE transaccion.num_cuenta = cuenta.num_cuenta
+      AND transaccion.fecha >= CURRENT_DATE - INTERVAL '30 days'
+)
+GROUP BY cuenta.tipo_cuenta;
 ```
 
 ## Enunciado 5: Clientes con transferencias pero sin retiros en cajeros
@@ -42,5 +114,16 @@
 
 **Consulta SQL:**
 ```sql
-
+SELECT
+    cuenta.id_cliente
+FROM
+    cuenta
+INNER JOIN transaccion ON transaccion.num_cuenta = cuenta.num_cuenta
+WHERE transaccion.descripcion != 'Retiro en cajero automático'
+AND EXISTS (
+    SELECT 1 FROM transaccion
+    INNER JOIN transferencia ON transferencia.id_transaccion = transaccion.id_transaccion
+    WHERE transaccion.num_cuenta = cuenta.num_cuenta
+)
+GROUP BY cuenta.id_cliente;
 ```
